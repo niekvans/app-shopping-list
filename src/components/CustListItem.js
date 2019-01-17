@@ -1,12 +1,12 @@
 import React from 'react';
 import PopupDialog, { DialogContent, DialogButton, SlideAnimation } from 'react-native-popup-dialog';
 import { StyleSheet, View, TextInput } from 'react-native';
-import { Icon } from 'react-native-elements'
 
 export default class CustListItem extends React.Component {
     state = {
         visible: false,
         text: this.props.item,
+        prevText: this.props.item,
         leftActionActivated: false,
         toggle: false
     }
@@ -14,10 +14,16 @@ export default class CustListItem extends React.Component {
     saveItem = () => {
         const text = this.state.text;
         this.setState({ visible: false });
-        if (this.props.newItem) {
-            this.setState({ text: '' });
+        if (text !== this.state.prevText) {
+            if (this.props.newItem) {
+                this.setState({ text: '' });
+            }
+            else {
+                this.setState({ prevText: text });
+            }
+            this.props.saveItem(text);
         }
-        this.props.saveText(text);
+
     }
 
     render() {
@@ -32,13 +38,6 @@ export default class CustListItem extends React.Component {
                     placeholder={this.props.placeholder}
                     style={styles.text}
                 />
-                {this.props.showDone ?
-                    <Icon
-                        name={this.props.done ? "check" : "close-o"}
-                        type="evilicon"
-                        color={this.props.done ? "green" : "red"}
-                    />
-                    : undefined}
                 <PopupDialog
                     dialogStyle={styles.popupPosition}
                     visible={this.state.visible}

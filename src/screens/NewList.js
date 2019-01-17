@@ -1,32 +1,25 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import CustomHeader from '../components/CustomHeader';
 import ListForm from '../components/ListForm';
 
-import { startAddList } from '../actions/lists';
-
+import { removeList } from '../actions/lists';
 
 export default class NewList extends React.Component {
 
     state = {
-        title: '',
-        items: [],
-        newItem: '',
         error: ''
     }
 
-    saveList = (title, items) => {
-        startAddList({
-            title: title,
-            items: items
-        });
+    saveList = () => {
         this.props.navigation.navigate('Main');
     }
 
-    cancel = () => {
+    cancel = (listid) => {
+        removeList(listid);
         this.props.navigation.navigate('Main');
-    }
+    };
 
     render() {
         return (
@@ -34,7 +27,7 @@ export default class NewList extends React.Component {
                 <CustomHeader
                     title='Create a new list'
                 />
-                <ListForm saveList={this.saveList} title={this.state.title} items={this.state.items} cancel={this.cancel} />
+                <ListForm saveList={this.saveList} cancel={this.cancel} />
             </View>
         )
     }

@@ -1,7 +1,5 @@
-// Main.js
 import React from 'react';
-import { StyleSheet, Text, View, TextInput, Button, RefreshControl } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { StyleSheet, Text, View, Button, ActivityIndicator, ScrollView } from 'react-native';
 import { List } from 'react-native-elements';
 
 import CustListItem from './CustListItem';
@@ -9,28 +7,63 @@ import SwipeableListItem from './SwipeableListItem';
 import database from '../firebase/firebase';
 import { databaseSection } from 'react-native-dotenv';
 
+import { createList, pushListItem, updateTitle } from '../actions/lists';
+
 export default class ListForm extends React.Component {
 
     state = {
-        title: this.props.title || '',
-        items: this.props.items || [],
+        title: '',
+        items: [],
         newItem: '',
         error: '',
         refreshing: false,
-        id: this.props.id || null
+        id: this.props.id || '',
+        loaded: false
+    }
+
+    componentDidMount() {
+        let listid;
+        if (!this.props.id) {
+            listid = createList();
+            this.setState({
+                id: listid
+            });
+        }
+        else {
+            listid = this.props.id
+        }
+
+        database.ref(`${databaseSection}/${listid}`).on('value', (snapshot) => {
+            let newList = [];
+            if (snapshot.val()) {
+                let items = snapshot.val().items;
+                for (let item in items) {
+                    newList.push({
+                        key: item,
+                        text: items[item]
+                    });
+                }
+                this.setState({
+                    items: newList,
+                    title: snapshot.val().title
+                });
+            }
+            this.setState({ loaded: true });
+        });
+    };
+
+    componentWillUnmount() {
+        database.ref(`${databaseSection}/${this.state.id}`).off();
     }
 
     addItemToList = (item) => {
         if (item !== '') {
-            this.setState(prevState => ({
-                items: [...prevState.items, item],
-                newItem: ''
-            }));
+            pushListItem(this.state.id, item);
         }
-    }
+    };
 
     cancel = () => {
-        this.props.cancel();
+        this.props.cancel(this.state.id);
     }
 
     saveList = () => {
@@ -41,125 +74,97 @@ export default class ListForm extends React.Component {
         else {
             this.setState({ error: 'Please enter a title' });
         }
-    }
+    };
 
-    _onRefresh = () => {
-        if (this.state.id) {
-            this.setState({ refreshing: true });
-            database.ref(`/${databaseSection}/${this.state.id}`).once('value').then((snapshot) => {
-                const list = snapshot.val();
-                this.setState({
-                    items: list.items || [],
-                    title: list.title,
-                    error: ''
-                });
-            }).catch((error) => {
-                this.setState({
-                    error: 'Problem fetching the data'
-                });
-            });
-            this.setState({ refreshing: false });
-        }
-    }
+    saveTitle = (title) => {
+        updateTitle(this.state.id, title);
+    };
 
     render() {
-        return (
-            <View style={styles.container}>
-                <View style={styles.buttons}>
-                    <Button
-                        title="Save List"
-                        onPress={this.saveList}
-                        color="#006AA7"
-                    />
-                    {this.props.removeList ?
+        if (this.state.loaded) {
+            return (
+                <View style={styles.container}>
+                    <View style={styles.title}>
+                        <CustListItem
+                            autoCapitalize={'none'}
+                            placeholder="Title"
+                            saveItem={this.saveTitle}
+                            value={this.state.title}
+                            label="Title"
+                            item={this.state.title}
+                        />
+                    </View>
+                    <View style={styles.buttons}>
                         <Button
-                            title="Remove List"
-                            onPress={this.props.removeList}
+                            title="Save List"
+                            onPress={this.saveList}
                             color="#006AA7"
                         />
-                        :
-                        undefined
-                    }
-                    <Button
-                        title="Cancel"
-                        onPress={this.cancel}
-                        color="#006AA7"
-                    />
-                </View>
+                        {this.props.removeList ?
+                            <Button
+                                title="Remove List"
+                                onPress={this.props.removeList}
+                                color="#006AA7"
+                            />
+                            :
+                            <Button
+                                title="Cancel"
+                                onPress={this.cancel}
+                                color="#006AA7"
+                            />
+                        }
 
-                {this.state.error ? <Text style={styles.error}>{this.state.error}</Text> : undefined}
-                <View style={styles.title}>
-                    <CustListItem
-                        autoCapitalize={'none'}
-                        placeholder="Title"
-                        saveText={title => this.setState({ title, error: '' })}
-                        value={this.state.title}
-                        label="Title"
-                        item={this.state.title}
-                    />
-                </View>
-                <ScrollView
-                    contentContainerStyle={{ flexGrow: 1 }}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={this.state.refreshing}
-                            onRefresh={this._onRefresh}
-                        />
-                    }
-                >
-                    <List>
-                        {this.state.items.map((item, index) => (
+                    </View>
+                    <ScrollView
+                        style={styles.scrollView}
+                    >
+                        <List>
+                            {this.state.items.map((item, index) => (
+                                <View
+                                    style={styles.listItem}
+                                    key={index}
+                                >
+                                    <SwipeableListItem
+                                        item={item.text}
+                                        itemid={item.key}
+                                        listid={this.state.id}
+                                    />
+                                </View>
+                            ))}
                             <View
                                 style={styles.listItem}
-                                key={index}
                             >
-                                <SwipeableListItem
-                                    item={item}
-                                    saveText={
-                                        (text) => this.setState((prevState) => {
-                                            const newState = prevState.items.map((item, i) => {
-                                                if (i == index) {
-                                                    return text;
-                                                }
-                                                else {
-                                                    return item;
-                                                }
-                                            });
-                                            return {
-                                                items: newState
-                                            }
-                                        })}
-                                    removeItem={
-                                        () => {
-                                            this.setState({
-                                                items: this.state.items.filter((item, i) => i !== index)
-                                            })
-                                        }
-                                    }
+                                <CustListItem
+                                    placeholder={"New Item"}
+                                    saveItem={newItem => this.addItemToList(newItem)}
+                                    item={this.state.newItem}
+                                    newItem={true}
                                 />
                             </View>
-                        ))}
-                        <View
-                            style={styles.listItem}
-                        >
-                            <CustListItem
-                                placeholder={"New Item"}
-                                saveText={newItem => this.addItemToList(newItem)}
-                                item={this.state.newItem}
-                                newItem={true}
-                            />
-                        </View>
-                    </List>
-                </ScrollView>
-            </View>
-        )
+                        </List>
+                    </ScrollView>
+                </View>
+            )
+        }
+        else {
+            return (
+                <View>
+                    <ActivityIndicator />
+                </View>
+            )
+        }
     }
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center'
+        // justifyContent: 'center'
+    },
+    scrollView: {
+        flexGrow: 1,
+        marginBottom: 30,
+        marginTop: 10
     },
     listItem: {
         // height: 30,

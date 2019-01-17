@@ -6,7 +6,7 @@ import { List, ListItem } from 'react-native-elements';
 import CustomHeader from '../components/CustomHeader';
 
 import { databaseSection } from 'react-native-dotenv';
-import database, { firebase } from './../firebase/firebase';
+import database from './../firebase/firebase';
 
 export default class Main extends React.Component {
     state = {
@@ -18,22 +18,25 @@ export default class Main extends React.Component {
     }
 
     loadData = () => {
-        database.ref(databaseSection).once('value')
-            .then((snapshot) => {
-                const lists = [];
-                snapshot.forEach((childSnapshot) => {
-                    lists.push({
-                        id: childSnapshot.key,
-                        ...childSnapshot.val()
-                    });
+        database.ref(databaseSection).on('value', (snapshot) => {
+            const lists = [];
+            snapshot.forEach((childSnapshot) => {
+                lists.push({
+                    id: childSnapshot.key,
+                    ...childSnapshot.val()
                 });
-                this.setState({ lists: lists, loaded: true, refreshing: false });
             });
-    }
+            this.setState({ lists: lists, loaded: true, refreshing: false });
+        });
+    };
 
     componentDidMount() {
         this.loadData();
-    }
+    };
+
+    componentWillUnmount() {
+        database.ref(databaseSection).off();
+    };
 
     addList = () => {
         this.props.navigation.navigate('NewList')
@@ -42,7 +45,7 @@ export default class Main extends React.Component {
     _onRefresh = () => {
         this.setState({ refreshing: true });
         this.loadData();
-    }
+    };
 
     render() {
         if (!this.state.loaded) {
@@ -86,7 +89,7 @@ export default class Main extends React.Component {
                                     key={list.id}
                                     title={list.title}
                                     titleStyle={styles.listItem}
-                                    onPress={() => this.props.navigation.navigate('EditList', { id: list.id, title: list.title, items: list.items })}
+                                    onPress={() => this.props.navigation.navigate('EditList', { id: list.id, title: list.title })}
                                 />
                             )
                             :
@@ -97,7 +100,8 @@ export default class Main extends React.Component {
             </View>
         )
     }
-}
+};
+
 const styles = StyleSheet.create({
     buttons: {
         width: 100,
@@ -119,4 +123,4 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         marginTop: 10
     }
-})
+});
